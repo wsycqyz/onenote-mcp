@@ -32,6 +32,8 @@ test('OneNote HTML becomes readable Markdown', () => {
     '<p data-tag="to-do">milk</p><p data-tag="to-do:completed">bread</p><p data-tag="important">key_point</p>' +
     `<p ${mono}>if\u00A0x:</p><p><span ${mono}>\u00A0\u00A0y()</span><span ${mono}>\uFFFC</span><span ${mono}>z()</span></p>` +
     '<table><tr><td>a|b</td><td>c</td></tr><tr><td>1</td><td>2</td></tr></table>' +
+    `<p ${mono}>git clone <a href="https://x.test/repo">https://x.test/repo</a></p><p ${mono}>a<br />b</p>` +
+    `<p ${mono}>see <a href="https://x.test/">docs</a></p><p ${mono}><span style="text-decoration:line-through">old</span> key</p>` +
     '<object data-attachment="doc.pdf" data="https://graph.microsoft.com/v1.0/x/$value"></object></div></body></html>';
   const markdown = htmlToMarkdown(html);
   assert.match(markdown, /^Plain \*\*bold\*\* \*it\* ~~gone~~ `inline` text$/m);
@@ -40,6 +42,11 @@ test('OneNote HTML becomes readable Markdown', () => {
   assert.match(markdown, /^\[important\] key_point$/m);
   assert.match(markdown, /^```\nif x:\n {2}y\(\)\nz\(\)\n```$/m);
   assert.match(markdown, /^\| a\\\|b \| c \|\n\| --- \| --- \|\n\| 1 \| 2 \|$/m);
+  // A link written as its URL stays in the code block and <br> stays a line break; links with other
+  // text and strike-through keep their paragraphs out of code, which would drop them.
+  assert.match(markdown, /^```\ngit clone https:\/\/x\.test\/repo\na\nb\n```$/m);
+  assert.match(markdown, /^see \[docs\]\(https:\/\/x\.test\/\)$/m);
+  assert.match(markdown, /^~~old~~ key$/m);
   assert.match(markdown, /\[attachment: doc\.pdf\]\(https:\/\/graph\.microsoft\.com\/v1\.0\/x\/\$value\)/);
 });
 

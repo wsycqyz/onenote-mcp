@@ -126,4 +126,11 @@ test('composePage copies blocks and images verbatim into the writable section on
   assert.doesNotMatch(created.posted, /position:absolute|gamma/);
   assert.deepEqual(created.parts.find((p) => p.name === 'part1').bytes, imageBytes);
   assert.deepEqual(created.parts.find((p) => p.name === 'part2').bytes, fileBytes);
+
+  const themed = await call('composePage', { ...base, theme: 'developer', sections: [{ ...sections[0], panel: 'dark' }, sections[1]], omit: [7] });
+  assert.equal(themed.error, false, themed.text);
+  assert.equal(JSON.parse(themed.text).verification.ok, true);
+  const { posted } = fake.state.created[1];
+  assert.match(posted, /<body><p style="font-family:Consolas;font-size:9pt;color:#59636e;[^"]*">Source: Personal \/ Journal \/ Notes \(last modified 2020-01-01T00:00:00Z\)<\/p>/);
+  assert.match(posted, /<td style="background-color:#161b22;[^"]*"><img [^>]*src="name:part1"/);
 });

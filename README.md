@@ -102,7 +102,7 @@ Other MCP clients (Claude Desktop, Cursor, VS Code) use the same `command`, `arg
 | `getPage` | all | Page content as Markdown (default), raw HTML with element IDs (`format: "html"`), or numbered blocks plus a `blocksVersion` for `composePage` (`format: "blocks"`) |
 | `searchPages` | all | Pages whose title contains `query`, optionally within a notebook or section |
 | `createPage` | write-section | New page in the writable section; `content` is Markdown, HTML or text |
-| `composePage` | write-section | New page in the writable section built from a source page's blocks, copied verbatim under added headings (see below) |
+| `composePage` | write-section | New page in the writable section built from a source page's blocks, copied verbatim under added headings, optionally restyled with `theme: "developer"` (see below) |
 | `appendToPage` | write-section | Append content to a page in the writable section |
 | `updatePage` | write-section | OneNote PATCH commands (`target`: `body`, `title`, `#data-id` or a generated element ID) |
 | `deletePage` | write-section | Delete a page in the writable section; `expectedTitle` must match the page title |
@@ -110,7 +110,7 @@ Other MCP clients (Claude Desktop, Cursor, VS Code) use the same `command`, `arg
 Content conversion (`lib/convert.mjs`):
 
 - Writes: Markdown becomes XHTML. `- [ ]` and `- [x]` items become OneNote to-do tags, and code blocks become one Consolas paragraph per line. Strikethrough becomes a styled span. Scripts, forms and event handlers are removed.
-- Reads: OneNote HTML becomes Markdown. Styled spans become bold, italic, strikethrough or code. Runs of monospace paragraphs become fenced code blocks. Note tags show as `[ ]`, `[x]` or `[tag]`, and tables, images and attachments become Markdown.
+- Reads: OneNote HTML becomes Markdown. Styled spans become bold, italic, strikethrough or code. Runs of monospace paragraphs become fenced code blocks, except paragraphs with strike-through or with a link whose text isn't its URL. Note tags show as `[ ]`, `[x]` or `[tag]`, and tables, images and attachments become Markdown.
 
 ### Reformatting without retyping (`composePage`)
 
@@ -120,6 +120,8 @@ Content conversion (`lib/convert.mjs`):
 - Downloads images and attachments from the source page and uploads them with the new page (multipart request). Each part gets the content type the source page declares, or else the one its magic bytes indicate. Graph serves every resource as `application/octet-stream`, and OneNote drops image parts sent with that type.
 - Starts the page with a line naming the source page.
 - Re-reads the new page and reports in `verification` whether every copied block's characters appear in order and every image and attachment is byte-identical to the source (SHA-256).
+
+With `theme: "developer"`, the page also gets one consistent look instead of the source's mixed formatting. Every block is set in Consolas 10.5pt with GitHub-style colours, and the source's fonts, sizes, colours, highlights, bold, italic and underline are dropped. Text, links, note tags, strike-through, tables and images stay, and tables keep their borders. Each section becomes a window-style table, with the heading in a title bar and one shaded row per `refs` item, so list related blocks as one range. A section with `panel: "dark"` is rendered as a terminal, for commands.
 
 OneNote returns attachments as XHTML self-closing tags (`<object ... />`). HTML parsers ignore that slash, so the server expands such tags before parsing; otherwise an attachment would swallow the content after it.
 
