@@ -16,6 +16,9 @@ out/
 .env.production.local
 .access-token.txt
 
+# Throwaway scripts (may contain note IDs or content)
+.scratch/
+
 # Logs
 logs
 *.log

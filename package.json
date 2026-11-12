@@ -13,6 +13,7 @@
   "scripts": {
     "start": "node onenote-mcp.mjs",
     "auth": "node scripts/auth.mjs",
+    "lockfile:public": "node scripts/public-lockfile.mjs",
     "test": "node --test \"test/*.test.mjs\""
   },
   "keywords": [

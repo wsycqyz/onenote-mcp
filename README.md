@@ -123,6 +123,10 @@ Content conversion (`lib/convert.mjs`):
 
 OneNote returns attachments as XHTML self-closing tags (`<object ... />`). HTML parsers ignore that slash, so the server expands such tags before parsing; otherwise an attachment would swallow the content after it.
 
+## Development
+
+`npm test` runs the unit tests against a fake Microsoft Graph, so they never contact OneNote. Put throwaway scripts in `.scratch/`, which git ignores. If you install packages through an npm registry mirror, run `npm run lockfile:public` before committing, so `package-lock.json` only references registry.npmjs.org. A test enforces this.
+
 ## Changes from upstream
 
 - The tools take real arguments. Upstream tools ignored their input, apart from a Cursor-only `random_string`. `createPage` always wrote a fixed page into the first section, and `listPages` only listed the first section.
