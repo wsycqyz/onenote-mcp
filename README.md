@@ -11,7 +11,7 @@ The server is **read-only by default**. Write tools exist only when it is starte
 | Mode | Started with | Tools |
 | --- | --- | --- |
 | `read-only` (default) | no `ONENOTE_*` settings, or `ONENOTE_ACCESS=read-only` | read tools only; the Graph client has no write capability |
-| `write-section` | `ONENOTE_ACCESS=write-section` and `ONENOTE_WRITE_SECTION=<section name>` | read tools plus `createPage`, `appendToPage`, `updatePage`, `deletePage` |
+| `write-section` | `ONENOTE_ACCESS=write-section` and `ONENOTE_WRITE_SECTION=<section name>` | read tools plus `createPage`, `composePage`, `appendToPage`, `updatePage`, `deletePage` |
 
 In `write-section` mode, the guard (`lib/guard.mjs`) resolves the section by name, case-insensitive. Set `ONENOTE_WRITE_NOTEBOOK` to limit the match to one notebook. Writes are refused when no section matches or more than one does. The guard resolves the section again before every write, so renaming the section or adding a second section with the same name revokes write access immediately. Before each page write, the guard also reads the target page from Graph and checks its parent section, then writes to the page ID Graph returned. The Graph layer (`lib/graph.mjs`) sends only three write shapes: create a page in a section, PATCH a page's content, and delete a page. It refuses every other method, path and host.
 
@@ -99,9 +99,10 @@ Other MCP clients (Claude Desktop, Cursor, VS Code) use the same `command`, `arg
 | `listNotebooks` | all | All notebooks |
 | `listSections` | all | Sections, including ones in section groups; filter by `notebookId` or `notebookName` |
 | `listPages` | all | Pages of a section (`sectionId`, or `sectionName` plus optional `notebookName`) |
-| `getPage` | all | Page content as Markdown (default) or raw HTML with element IDs (`format: "html"`) |
+| `getPage` | all | Page content as Markdown (default), raw HTML with element IDs (`format: "html"`), or numbered blocks plus a `blocksVersion` for `composePage` (`format: "blocks"`) |
 | `searchPages` | all | Pages whose title contains `query`, optionally within a notebook or section |
 | `createPage` | write-section | New page in the writable section; `content` is Markdown, HTML or text |
+| `composePage` | write-section | New page in the writable section built from a source page's blocks, copied verbatim under added headings (see below) |
 | `appendToPage` | write-section | Append content to a page in the writable section |
 | `updatePage` | write-section | OneNote PATCH commands (`target`: `body`, `title`, `#data-id` or a generated element ID) |
 | `deletePage` | write-section | Delete a page in the writable section; `expectedTitle` must match the page title |
@@ -110,6 +111,15 @@ Content conversion (`lib/convert.mjs`):
 
 - Writes: Markdown becomes XHTML. `- [ ]` and `- [x]` items become OneNote to-do tags, and code blocks become one Consolas paragraph per line. Strikethrough becomes a styled span. Scripts, forms and event handlers are removed.
 - Reads: OneNote HTML becomes Markdown. Styled spans become bold, italic, strikethrough or code. Runs of monospace paragraphs become fenced code blocks. Note tags show as `[ ]`, `[x]` or `[tag]`, and tables, images and attachments become Markdown.
+
+### Reformatting without retyping (`composePage`)
+
+`getPage` with `format: "blocks"` splits a page into numbered top-level blocks (paragraphs, tables, lists, images) and returns a `blocksVersion`. `composePage` takes a layout of sections, each with an optional heading and a list of block numbers or ranges such as `"3-7"`. It copies the blocks' original HTML into a new page in the writable section, so text is never retyped (`lib/compose.mjs`). Specifically, it:
+
+- Refuses if the source page changed since it was read, if a block is used twice, or if a block is neither used nor listed in `omit`.
+- Downloads images and attachments from the source page and uploads them with the new page (multipart request).
+- Starts the page with a line naming the source page.
+- Re-reads the new page and reports in `verification` whether every copied block's characters appear in order and the image count matches.
 
 ## Changes from upstream
 
