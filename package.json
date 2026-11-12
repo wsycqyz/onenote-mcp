@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-onenote",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "OneNote MCP server for personal Microsoft accounts, read-only by default with optional single-section write access",
   "type": "module",
   "main": "onenote-mcp.mjs",

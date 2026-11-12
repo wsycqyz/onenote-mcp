@@ -99,3 +99,17 @@ test('guard re-checks the section before every write, ignoring the display cache
   await assert.rejects(guard.deletePage('page-ai'), /2 sections are named/);
   assert.equal(fake.writes().length, 1);
 });
+
+test('reads retry network errors, writes report them without retrying', async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, { method }) => {
+    calls++;
+    if (calls === 1 || method !== 'GET') throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+    return new Response('{"value":[]}', { status: 200 });
+  };
+  const { reader, writer } = createGraph({ getToken, fetchImpl, allowWrites: true, sleep: async () => {} });
+  assert.deepEqual(await reader.getAll('/me/onenote/notebooks'), []);
+  assert.equal(calls, 2);
+  await assert.rejects(writer.deletePage('page-ai'), /network error \(ECONNRESET\); check whether the change was applied/);
+  assert.equal(calls, 3);
+});

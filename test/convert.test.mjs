@@ -42,3 +42,10 @@ test('OneNote HTML becomes readable Markdown', () => {
   assert.match(markdown, /^\| a\\\|b \| c \|\n\| --- \| --- \|\n\| 1 \| 2 \|$/m);
   assert.match(markdown, /\[attachment: doc\.pdf\]\(https:\/\/graph\.microsoft\.com\/v1\.0\/x\/\$value\)/);
 });
+
+test('content after a self-closing attachment is not lost when reading', () => {
+  const markdown = htmlToMarkdown(
+    '<html><body><div><object data-attachment="a.pdf" data="u1" /><p>between</p><object data-attachment="b.pdf" data="u2" /></div></body></html>',
+  );
+  assert.match(markdown, /\[attachment: a\.pdf\]\(u1\)\s+between\s+\[attachment: b\.pdf\]\(u2\)/);
+});

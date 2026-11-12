@@ -117,9 +117,11 @@ Content conversion (`lib/convert.mjs`):
 `getPage` with `format: "blocks"` splits a page into numbered top-level blocks (paragraphs, tables, lists, images) and returns a `blocksVersion`. `composePage` takes a layout of sections, each with an optional heading and a list of block numbers or ranges such as `"3-7"`. It copies the blocks' original HTML into a new page in the writable section, so text is never retyped (`lib/compose.mjs`). Specifically, it:
 
 - Refuses if the source page changed since it was read, if a block is used twice, or if a block is neither used nor listed in `omit`.
-- Downloads images and attachments from the source page and uploads them with the new page (multipart request).
+- Downloads images and attachments from the source page and uploads them with the new page (multipart request). Each part gets the content type the source page declares, or else the one its magic bytes indicate. Graph serves every resource as `application/octet-stream`, and OneNote drops image parts sent with that type.
 - Starts the page with a line naming the source page.
-- Re-reads the new page and reports in `verification` whether every copied block's characters appear in order and the image count matches.
+- Re-reads the new page and reports in `verification` whether every copied block's characters appear in order and every image and attachment is byte-identical to the source (SHA-256).
+
+OneNote returns attachments as XHTML self-closing tags (`<object ... />`). HTML parsers ignore that slash, so the server expands such tags before parsing; otherwise an attachment would swallow the content after it.
 
 ## Changes from upstream
 

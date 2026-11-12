@@ -1,12 +1,15 @@
 // Fake Microsoft Graph for tests: a tiny OneNote model plus a request log.
 
-// A OneNote-style source page: an outline <div>, a positioned image and a bare text node.
+// A OneNote-style source page: an outline <div>, a self-closing attachment followed by more
+// content, a positioned image and a bare text node.
 export const IMAGE_URL = "https://graph.microsoft.com/v1.0/users('me@outlook.com')/onenote/resources/res-1/$value";
+export const FILE_URL = "https://graph.microsoft.com/v1.0/users('me@outlook.com')/onenote/resources/res-2/$value";
 export const SOURCE_HTML =
   '<html><head><title>Notes</title></head><body data-absolute-enabled="true">' +
   '<div data-id="_default" style="position:absolute;left:48px;top:120px;width:624px">' +
   '<p style="margin-top:0pt">alpha <span style="font-weight:bold">key-123</span></p><br />' +
-  '<table><tr><td>a</td><td>b</td></tr></table><p>beta p***w0rd &lt;host IP&gt;</p></div>' +
+  '<table><tr><td>a</td><td>b</td></tr></table><p>beta p***w0rd &lt;host IP&gt;</p>' +
+  `<object data-attachment="doc.pdf" type="application/pdf" data="${FILE_URL}" /><p>after attachment</p></div>` +
   `<img style="position:absolute;left:10px;top:400px" src="${IMAGE_URL}" data-fullres-src="${IMAGE_URL}" ` +
   'data-src-type="image/png" alt="screenshot text" width="100" height="50" />' +
   '<div style="position:absolute;left:48px;top:600px">gamma text node</div></body></html>';
@@ -49,14 +52,21 @@ export function createFakeGraph({ sections, pages, resources = {}, encrypted = [
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
   const encryptedError = () => json(403, { error: { code: '20185', message: 'Encrypted sections are not accessible.' } });
 
+  // Like OneNote: uploaded parts become page resources, and name:<part> references become their URLs.
   function createPage(sectionId, body, contentType) {
     const parts = contentType.startsWith('multipart/') ? parseMultipart(body) : [];
-    const html = parts.length ? parts.find((p) => p.name === 'Presentation').bytes.toString('utf8') : String(body);
+    const posted = parts.length ? parts.find((p) => p.name === 'Presentation').bytes.toString('utf8') : String(body);
     const id = `page-new-${state.created.length + 1}`;
+    let html = posted;
+    for (const part of parts.filter((p) => p.name !== 'Presentation')) {
+      const resourceId = `${id}-${part.name}`;
+      state.resources[resourceId] = { bytes: part.bytes, contentType: part.contentType };
+      html = html.replaceAll(`name:${part.name}`, `https://graph.microsoft.com/v1.0/users('me@outlook.com')/onenote/resources/${resourceId}/$value`);
+    }
     const title = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '';
     const page = { id, title, html, parentSection: { id: sectionId, displayName: 'AI Manage' } };
     state.pages[id] = page;
-    state.created.push({ ...page, parts });
+    state.created.push({ ...page, posted, parts });
     return json(201, { id, title, parentSection: page.parentSection });
   }
 
