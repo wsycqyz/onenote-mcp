@@ -134,3 +134,40 @@ test('composePage copies blocks and images verbatim into the writable section on
   assert.match(posted, /<body><p style="font-family:Consolas;font-size:9pt;color:#59636e;[^"]*">Source: Personal \/ Journal \/ Notes \(last modified 2020-01-01T00:00:00Z\)<\/p>/);
   assert.match(posted, /<td style="background-color:#161b22;[^"]*"><img [^>]*src="name:part1"/);
 });
+
+test('composePage merges several source pages into one page', async () => {
+  const page = (id, title, lastModifiedDateTime, body) => ({
+    id,
+    title,
+    lastModifiedDateTime,
+    parentSection: { id: 'sec-journal', displayName: 'Journal' },
+    parentNotebook: { id: 'nb-1', displayName: 'Personal' },
+    html: `<html><head><title>${title}</title></head><body>${body}</body></html>`,
+  });
+  const pages = {
+    'page-a': page('page-a', 'Part one', '2020-01-01T00:00:00Z', '<p>one-a</p><p>one-b</p>'),
+    'page-b': page('page-b', 'Part two', '2020-02-02T00:00:00Z', '<p>two-a</p>'),
+  };
+  const { call, fake } = await connect(WRITE_ENV, { pages });
+  const version = async (pageId) => JSON.parse((await call('getPage', { pageId, format: 'blocks' })).text.split('\n\n---\n\n')[0]).blocksVersion;
+  const sources = [
+    { pageId: 'page-a', version: await version('page-a') },
+    { pageId: 'page-b', version: await version('page-b') },
+  ];
+  const base = { title: 'Parts (merged)', sources, theme: 'developer', sections: [{ heading: 'All', refs: ['2:1', '1:1-2'] }] };
+
+  const { sources: _sources, ...noSource } = base;
+  assert.match((await call('composePage', noSource)).text, /Give either sourcePageId and sourceVersion, or sources/);
+  assert.match((await call('composePage', { ...base, sourcePageId: 'page-a', sourceVersion: sources[0].version })).text, /Give either/);
+  assert.match((await call('composePage', { ...base, sources: [sources[0], sources[0]] })).text, /lists a page more than once/);
+  assert.match((await call('composePage', { ...base, sources: [sources[0], { ...sources[1], version: 'stale' }] })).text, /Source page 2 \("Part two"\) changed/);
+  assert.equal(fake.writes().length, 0);
+
+  const result = await call('composePage', base);
+  assert.equal(result.error, false, result.text);
+  const body = JSON.parse(result.text);
+  assert.deepEqual([body.blocksCopied, body.omitted, body.verification.ok], [3, [], true]);
+  const { posted } = fake.state.created[0];
+  assert.match(posted, /<body><p [^>]*>Source 1: Personal \/ Journal \/ Part one \(last modified 2020-01-01T00:00:00Z\)<\/p><p [^>]*>Source 2: Personal \/ Journal \/ Part two \(last modified 2020-02-02T00:00:00Z\)<\/p>/);
+  assert.match(posted, /<td [^>]*><p [^>]*>two-a<\/p><\/td><\/tr><tr><td [^>]*><p [^>]*>one-a<\/p><p [^>]*>one-b<\/p><\/td>/);
+});

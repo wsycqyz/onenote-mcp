@@ -31,6 +31,25 @@ test('composeBody requires every block exactly once unless omitted', () => {
   assert.throws(() => composeBody({ blocks, sections: [{ refs: [99, 'x'] }] }), /Invalid block reference "x"/);
 });
 
+test('composeBody merges several pages, naming blocks page:block', () => {
+  const first = extractBlocks(SOURCE_HTML).blocks;
+  const second = extractBlocks('<html><body><p>delta</p><p>epsilon</p><p>zeta</p></body></html>').blocks;
+  const sources = [first, second];
+  const { bodyHtml, used, omitted } = composeBody({ sources, sections: [{ heading: 'All', refs: ['2:3', '1:1-6', '2:1'] }], omit: ['2:2', '1:7'] });
+  assert.match(bodyHtml, /^<h2>All<\/h2><p>zeta<\/p><p style="margin-top:0pt">alpha /);
+  assert.deepEqual(used.map((b) => b.label), ['2:3', '1:1', '1:2', '1:3', '1:4', '1:5', '1:6', '2:1']);
+  assert.deepEqual(omitted, ['1:7', '2:2']);
+  const copy = used.map((b) => b.html).join('');
+  assert.deepEqual(verifyText(used, `<html><body>${copy.replace('alpha', 'alpah')}</body></html>`).mismatched, ['1:1']);
+
+  const layout = (...refs) => composeBody({ sources, sections: [{ refs }] });
+  assert.throws(() => layout('1:1-3'), /Not placed: 1:4-7, 2:1-3\./);
+  assert.throws(() => layout('1:1-7', 3), /Block reference 3 needs its page/);
+  assert.throws(() => layout('1:1-7', '2:1-3', '2:3'), /Block 2:3 is used more than once/);
+  assert.throws(() => layout('2:1-999999999'), /Block 2:999999999 does not exist; page 2 has blocks 1-3/);
+  assert.throws(() => layout('3:1'), /Page 3 does not exist; there are 2 source pages/);
+});
+
 test('composeBody theme developer restyles blocks without touching their text, one row per refs item', () => {
   const { blocks } = extractBlocks(
     '<html><body><div style="position:absolute;left:48px;top:120px;width:624px">' +

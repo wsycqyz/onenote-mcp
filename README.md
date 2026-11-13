@@ -102,7 +102,7 @@ Other MCP clients (Claude Desktop, Cursor, VS Code) use the same `command`, `arg
 | `getPage` | all | Page content as Markdown (default), raw HTML with element IDs (`format: "html"`), or numbered blocks plus a `blocksVersion` for `composePage` (`format: "blocks"`) |
 | `searchPages` | all | Pages whose title contains `query`, optionally within a notebook or section |
 | `createPage` | write-section | New page in the writable section; `content` is Markdown, HTML or text |
-| `composePage` | write-section | New page in the writable section built from a source page's blocks, copied verbatim under added headings, optionally restyled with `theme: "developer"` (see below) |
+| `composePage` | write-section | New page in the writable section built from the blocks of one source page or several merged pages, copied verbatim under added headings, optionally restyled with `theme: "developer"` (see below) |
 | `appendToPage` | write-section | Append content to a page in the writable section |
 | `updatePage` | write-section | OneNote PATCH commands (`target`: `body`, `title`, `#data-id` or a generated element ID) |
 | `deletePage` | write-section | Delete a page in the writable section; `expectedTitle` must match the page title |
@@ -120,6 +120,8 @@ Content conversion (`lib/convert.mjs`):
 - Downloads images and attachments from the source page and uploads them with the new page (multipart request). Each part gets the content type the source page declares, or else the one its magic bytes indicate. Graph serves every resource as `application/octet-stream`, and OneNote drops image parts sent with that type.
 - Starts the page with a line naming the source page.
 - Re-reads the new page and reports in `verification` whether every copied block's characters appear in order and every image and attachment is byte-identical to the source (SHA-256).
+
+To merge pages, pass `sources`, a list of `{ pageId, version }` (up to 20 pages, each listed once), instead of `sourcePageId` and `sourceVersion`. With more than one source, `refs` and `omit` name each block as `page:block`, where `page` is the source's 1-based position in the list, for example `"2:5"` or the range `"2:3-7"`. A section can mix blocks from several pages. Every block of every source page must be used exactly once or omitted, each source page is checked for changes, and the new page starts with one `Source N:` line per source page.
 
 With `theme: "developer"`, the page also gets one consistent look instead of the source's mixed formatting. Every block is set in Consolas 10.5pt with GitHub-style colours, and the source's fonts, sizes, colours, highlights, bold, italic and underline are dropped. Text, links, note tags, strike-through, tables and images stay, and tables keep their borders. Each section becomes a window-style table, with the heading in a title bar and one shaded row per `refs` item, so list related blocks as one range. A section with `panel: "dark"` is rendered as a terminal, for commands.
 
